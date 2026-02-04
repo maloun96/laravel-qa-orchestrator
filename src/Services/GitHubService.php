@@ -207,7 +207,7 @@ class GitHubService
     }
 
     /**
-     * Find an open PR that matches the Jira key pattern
+     * Find an open PR that matches the Jira key pattern (excluding QA branches)
      */
     public function findPrByJiraKey(string $jiraKey): ?array
     {
@@ -223,8 +223,14 @@ class GitHubService
             $jiraKeyLower = strtolower($jiraKey);
 
             foreach ($prs as $pr) {
-                $branchLower = strtolower($pr['head']['ref'] ?? '');
+                $branch = $pr['head']['ref'] ?? '';
+                $branchLower = strtolower($branch);
                 $titleLower = strtolower($pr['title'] ?? '');
+
+                // Skip QA branches - we want feature branches only
+                if (str_starts_with($branchLower, 'qa/')) {
+                    continue;
+                }
 
                 if (str_contains($branchLower, $jiraKeyLower) || str_contains($titleLower, $jiraKeyLower)) {
                     return $pr;
@@ -238,7 +244,7 @@ class GitHubService
     }
 
     /**
-     * Find a branch that matches the Jira key pattern
+     * Find a branch that matches the Jira key pattern (excluding QA branches)
      */
     public function findBranchByJiraKey(string $jiraKey): ?string
     {
@@ -254,7 +260,14 @@ class GitHubService
 
             foreach ($branches as $branch) {
                 $branchName = $branch['name'] ?? '';
-                if (str_contains(strtolower($branchName), $jiraKeyLower)) {
+                $branchLower = strtolower($branchName);
+
+                // Skip QA branches - we want feature branches only
+                if (str_starts_with($branchLower, 'qa/')) {
+                    continue;
+                }
+
+                if (str_contains($branchLower, $jiraKeyLower)) {
                     return $branchName;
                 }
             }
