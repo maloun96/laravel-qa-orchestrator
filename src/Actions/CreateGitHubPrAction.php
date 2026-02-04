@@ -162,7 +162,21 @@ class CreateGitHubPrAction
         // Match pattern: // === FILE: filename.ext ===
         $pattern = '/\/\/\s*===\s*FILE:\s*([^\s=]+)\s*===/';
 
-        if (preg_match_all($pattern, $code, $matches, PREG_OFFSET_CAPTURE)) {
+        Log::info('parseMultipleFiles: Starting parse', [
+            'code_length' => strlen($code),
+            'code_preview' => substr($code, 0, 200),
+            'pattern' => $pattern,
+        ]);
+
+        $matchResult = preg_match_all($pattern, $code, $matches, PREG_OFFSET_CAPTURE);
+
+        Log::info('parseMultipleFiles: Regex result', [
+            'match_result' => $matchResult,
+            'matches_count' => $matchResult ? count($matches[0]) : 0,
+            'matches' => $matchResult ? $matches : 'no matches',
+        ]);
+
+        if ($matchResult) {
             $fullMatches = $matches[0];
             $fileNames = $matches[1];
             $count = count($fileNames);
@@ -191,8 +205,14 @@ class CreateGitHubPrAction
             }
         }
 
+        Log::info('parseMultipleFiles: Parsed files', [
+            'files_count' => count($files),
+            'file_names' => array_column($files, 'name'),
+        ]);
+
         // Fallback: if no FILE markers found, treat entire code as single spec file
         if (empty($files)) {
+            Log::warning('parseMultipleFiles: No FILE markers found, using fallback');
             $files[] = [
                 'name' => basename($basePath),
                 'path' => $basePath,
