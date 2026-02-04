@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Maloun\QAOrchestrator\Actions\GenerateTestCasesAction;
 use Maloun\QAOrchestrator\Enums\QAStatusEnum;
 use Maloun\QAOrchestrator\Models\QAProcess;
+use Maloun\QAOrchestrator\Services\SlackNotificationService;
 use Throwable;
 
 class GenerateTestCasesJob implements ShouldQueue
@@ -46,5 +47,11 @@ class GenerateTestCasesJob implements ShouldQueue
         ]);
 
         $this->qaProcess->markFailed('Test case generation failed: '.$exception->getMessage());
+
+        app(SlackNotificationService::class)->notifyError(
+            'Test Case Generation',
+            $exception->getMessage(),
+            $this->qaProcess
+        );
     }
 }

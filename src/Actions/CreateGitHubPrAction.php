@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Maloun\QAOrchestrator\Models\QAProcess;
 use Maloun\QAOrchestrator\Models\QATestCase;
 use Maloun\QAOrchestrator\Services\GitHubService;
+use Maloun\QAOrchestrator\Services\SlackNotificationService;
 
 class CreateGitHubPrAction
 {
@@ -66,6 +67,13 @@ class CreateGitHubPrAction
             'qa_process_id' => $qaProcess->id,
             'pr_url' => $qaProcess->github_pr_url,
         ]);
+
+        if (config('qa-orchestrator.slack.notify_on_success')) {
+            app(SlackNotificationService::class)->notifySuccess(
+                "PR created with generated E2E tests",
+                $qaProcess
+            );
+        }
     }
 
     private function generateBranchName(QAProcess $qaProcess): string

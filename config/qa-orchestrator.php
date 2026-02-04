@@ -69,4 +69,15 @@ return [
         'connection' => env('QA_QUEUE_CONNECTION'),
         'queue' => env('QA_QUEUE_NAME', 'qa'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Slack Notifications
+    |--------------------------------------------------------------------------
+    */
+    'slack' => [
+        'webhook_url' => env('QA_SLACK_WEBHOOK_URL'),
+        'notify_on_success' => env('QA_SLACK_NOTIFY_SUCCESS', true),
+        'notify_on_failure' => env('QA_SLACK_NOTIFY_FAILURE', true),
+    ],
 ];

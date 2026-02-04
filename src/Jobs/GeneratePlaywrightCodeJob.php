@@ -14,6 +14,7 @@ use Maloun\QAOrchestrator\Actions\CreateGitHubPrAction;
 use Maloun\QAOrchestrator\Actions\GeneratePlaywrightCodeAction;
 use Maloun\QAOrchestrator\Enums\QAStatusEnum;
 use Maloun\QAOrchestrator\Models\QAProcess;
+use Maloun\QAOrchestrator\Services\SlackNotificationService;
 use Throwable;
 
 class GeneratePlaywrightCodeJob implements ShouldQueue
@@ -51,5 +52,11 @@ class GeneratePlaywrightCodeJob implements ShouldQueue
         ]);
 
         $this->qaProcess->markFailed('Playwright generation failed: '.$exception->getMessage());
+
+        app(SlackNotificationService::class)->notifyError(
+            'Playwright Code Generation',
+            $exception->getMessage(),
+            $this->qaProcess
+        );
     }
 }

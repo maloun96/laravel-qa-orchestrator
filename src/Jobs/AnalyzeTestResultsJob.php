@@ -14,6 +14,7 @@ use Maloun\QAOrchestrator\Actions\AnalyzeTestResultsAction;
 use Maloun\QAOrchestrator\Actions\UpdateJiraWithResultsAction;
 use Maloun\QAOrchestrator\Enums\QAStatusEnum;
 use Maloun\QAOrchestrator\Models\QAProcess;
+use Maloun\QAOrchestrator\Services\SlackNotificationService;
 use Throwable;
 
 class AnalyzeTestResultsJob implements ShouldQueue
@@ -51,5 +52,11 @@ class AnalyzeTestResultsJob implements ShouldQueue
         ]);
 
         $this->qaProcess->markFailed('Result analysis failed: '.$exception->getMessage());
+
+        app(SlackNotificationService::class)->notifyError(
+            'Test Results Analysis',
+            $exception->getMessage(),
+            $this->qaProcess
+        );
     }
 }

@@ -14,6 +14,7 @@ use Maloun\QAOrchestrator\Dto\JiraWebhookPayloadDto;
 use Maloun\QAOrchestrator\Enums\QAStatusEnum;
 use Maloun\QAOrchestrator\Models\QAProcess;
 use Maloun\QAOrchestrator\Services\JiraClient;
+use Maloun\QAOrchestrator\Services\SlackNotificationService;
 use Throwable;
 
 class ProcessJiraQAWebhookJob implements ShouldQueue
@@ -68,5 +69,10 @@ class ProcessJiraQAWebhookJob implements ShouldQueue
             'issue_key' => $this->payload->issueKey,
             'error' => $exception->getMessage(),
         ]);
+
+        app(SlackNotificationService::class)->notifyError(
+            'Jira Webhook Processing',
+            "Issue: {$this->payload->issueKey}\n{$exception->getMessage()}"
+        );
     }
 }
