@@ -36,9 +36,20 @@ class CreateGitHubPrAction
             return;
         }
 
+        // Find existing PR or branch for this Jira key
+        $targetBranch = $this->findTargetBranch($qaProcess->jira_issue_key);
+        $baseBranch = $targetBranch ?? $this->gitHubService->getDefaultBranch();
+
+        Log::info('CreateGitHubPrAction: Target branch determined', [
+            'qa_process_id' => $qaProcess->id,
+            'target_branch' => $targetBranch,
+            'base_branch' => $baseBranch,
+        ]);
+
         $branchName = $this->generateBranchName($qaProcess);
 
-        $this->gitHubService->createBranch($branchName);
+        // Create QA branch from the target branch (existing feature branch or main)
+        $this->gitHubService->createBranch($branchName, $baseBranch);
 
         $this->gitHubService->createOrUpdateFile(
             branch: $branchName,
@@ -47,18 +58,21 @@ class CreateGitHubPrAction
             message: "test(e2e): add generated tests for {$qaProcess->jira_issue_key}",
         );
 
-        $prBody = $this->generatePrBody($qaProcess);
+        $prBody = $this->generatePrBody($qaProcess, $baseBranch);
 
+        // Create PR targeting the feature branch (or main if no feature branch exists)
         $pr = $this->gitHubService->createPullRequest(
             title: "test(e2e): {$qaProcess->jira_issue_key} - {$qaProcess->jira_summary}",
             body: $prBody,
             head: $branchName,
+            base: $baseBranch,
         );
 
         $qaProcess->update([
             'github_branch' => $branchName,
             'github_pr_url' => $pr['html_url'] ?? null,
             'github_pr_number' => $pr['number'] ?? null,
+            'github_target_branch' => $baseBranch,
         ]);
 
         $this->triggerTests($qaProcess, $branchName);
@@ -66,14 +80,55 @@ class CreateGitHubPrAction
         Log::info('CreateGitHubPrAction: Created GitHub PR', [
             'qa_process_id' => $qaProcess->id,
             'pr_url' => $qaProcess->github_pr_url,
+            'target_branch' => $baseBranch,
         ]);
 
         if (config('qa-orchestrator.slack.notify_on_success')) {
-            app(SlackNotificationService::class)->notifySuccess(
-                "PR created with generated E2E tests",
-                $qaProcess
-            );
+            $message = $targetBranch
+                ? "PR created targeting existing branch `{$targetBranch}`"
+                : "PR created targeting `{$baseBranch}` (no existing feature branch found)";
+
+            app(SlackNotificationService::class)->notifySuccess($message, $qaProcess);
         }
+    }
+
+    /**
+     * Find an existing branch or PR for the Jira key to use as base
+     */
+    private function findTargetBranch(string $jiraKey): ?string
+    {
+        // First, check for an existing open PR with this Jira key
+        $existingPr = $this->gitHubService->findPrByJiraKey($jiraKey);
+
+        if ($existingPr) {
+            $branch = $existingPr['head']['ref'] ?? null;
+
+            Log::info('CreateGitHubPrAction: Found existing PR for Jira key', [
+                'jira_key' => $jiraKey,
+                'pr_number' => $existingPr['number'],
+                'branch' => $branch,
+            ]);
+
+            return $branch;
+        }
+
+        // If no PR, check for an existing branch with this Jira key
+        $existingBranch = $this->gitHubService->findBranchByJiraKey($jiraKey);
+
+        if ($existingBranch) {
+            Log::info('CreateGitHubPrAction: Found existing branch for Jira key', [
+                'jira_key' => $jiraKey,
+                'branch' => $existingBranch,
+            ]);
+
+            return $existingBranch;
+        }
+
+        Log::info('CreateGitHubPrAction: No existing PR or branch found for Jira key', [
+            'jira_key' => $jiraKey,
+        ]);
+
+        return null;
     }
 
     private function generateBranchName(QAProcess $qaProcess): string
@@ -84,12 +139,13 @@ class CreateGitHubPrAction
         return "qa/{$issueKey}-{$timestamp}";
     }
 
-    private function generatePrBody(QAProcess $qaProcess): string
+    private function generatePrBody(QAProcess $qaProcess, string $targetBranch): string
     {
         $testCases = $qaProcess->testCases()->get();
 
         $body = "## AI-Generated E2E Tests\n\n";
-        $body .= "**Jira Ticket:** [{$qaProcess->jira_issue_key}]({$qaProcess->jira_issue_url})\n\n";
+        $body .= "**Jira Ticket:** [{$qaProcess->jira_issue_key}]({$qaProcess->jira_issue_url})\n";
+        $body .= "**Target Branch:** `{$targetBranch}`\n\n";
         $body .= "### Test Cases\n\n";
 
         /** @var QATestCase $testCase */

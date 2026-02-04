@@ -201,6 +201,86 @@ class GitHubService
         return $this->testPath;
     }
 
+    public function getDefaultBranch(): string
+    {
+        return $this->defaultBranch;
+    }
+
+    /**
+     * Find an open PR that matches the Jira key pattern
+     */
+    public function findPrByJiraKey(string $jiraKey): ?array
+    {
+        try {
+            $prs = $this->request
+                ->get("/repos/{$this->owner}/{$this->repo}/pulls", [
+                    'state' => 'open',
+                    'per_page' => 100,
+                ])
+                ->throw()
+                ->json();
+
+            $jiraKeyLower = strtolower($jiraKey);
+
+            foreach ($prs as $pr) {
+                $branchLower = strtolower($pr['head']['ref'] ?? '');
+                $titleLower = strtolower($pr['title'] ?? '');
+
+                if (str_contains($branchLower, $jiraKeyLower) || str_contains($titleLower, $jiraKeyLower)) {
+                    return $pr;
+                }
+            }
+
+            return null;
+        } catch (RequestException) {
+            return null;
+        }
+    }
+
+    /**
+     * Find a branch that matches the Jira key pattern
+     */
+    public function findBranchByJiraKey(string $jiraKey): ?string
+    {
+        try {
+            $branches = $this->request
+                ->get("/repos/{$this->owner}/{$this->repo}/branches", [
+                    'per_page' => 100,
+                ])
+                ->throw()
+                ->json();
+
+            $jiraKeyLower = strtolower($jiraKey);
+
+            foreach ($branches as $branch) {
+                $branchName = $branch['name'] ?? '';
+                if (str_contains(strtolower($branchName), $jiraKeyLower)) {
+                    return $branchName;
+                }
+            }
+
+            return null;
+        } catch (RequestException) {
+            return null;
+        }
+    }
+
+    /**
+     * Check if a branch exists
+     */
+    public function branchExists(string $branchName): bool
+    {
+        try {
+            $this->request
+                ->get("/repos/{$this->owner}/{$this->repo}/git/ref/heads/{$branchName}")
+                ->throw();
+
+            return true;
+        } catch (RequestException) {
+            return false;
+        }
+    }
+
     private function executeRequest(callable $action): mixed
     {
         try {
