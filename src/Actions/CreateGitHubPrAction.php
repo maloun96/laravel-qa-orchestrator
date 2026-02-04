@@ -163,25 +163,25 @@ class CreateGitHubPrAction
         $pattern = '/\/\/\s*===\s*FILE:\s*([^\s=]+)\s*===/';
 
         if (preg_match_all($pattern, $code, $matches, PREG_OFFSET_CAPTURE)) {
+            $fullMatches = $matches[0];
             $fileNames = $matches[1];
+            $count = count($fileNames);
 
-            for ($i = 0; $i < count($fileNames); $i++) {
+            for ($i = 0; $i < $count; $i++) {
                 $fileName = $fileNames[$i][0];
-                $startOffset = $fileNames[$i][1] + strlen($matches[0][$i][0]);
+                $matchStart = $fullMatches[$i][1];
+                $matchLength = strlen($fullMatches[$i][0]);
+                $startOffset = $matchStart + $matchLength;
 
                 // Find end of this file's content (next FILE marker or end of string)
-                $endOffset = isset($fileNames[$i + 1])
-                    ? $matches[0][$i + 1][1]
+                $endOffset = ($i + 1 < $count)
+                    ? $fullMatches[$i + 1][1]
                     : strlen($code);
 
                 $content = trim(substr($code, $startOffset, $endOffset - $startOffset));
 
                 // Determine full path
-                $fullPath = str_starts_with($fileName, 'pages/')
-                    ? "{$testPath}/{$fileName}"
-                    : (str_ends_with($fileName, '.md')
-                        ? "{$testPath}/{$fileName}"
-                        : "{$testPath}/{$fileName}");
+                $fullPath = "{$testPath}/{$fileName}";
 
                 $files[] = [
                     'name' => $fileName,
