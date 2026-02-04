@@ -26,9 +26,9 @@ class CreateGitHubPrAction
 
         $testResults = $qaProcess->test_results ?? [];
         $playwrightCode = $testResults['playwright_code'] ?? null;
-        $filePath = $testResults['playwright_file'] ?? null;
+        $basePath = $testResults['playwright_file'] ?? null;
 
-        if (! $playwrightCode || ! $filePath) {
+        if (! $playwrightCode || ! $basePath) {
             Log::warning('CreateGitHubPrAction: No Playwright code to commit', [
                 'qa_process_id' => $qaProcess->id,
             ]);
@@ -51,12 +51,22 @@ class CreateGitHubPrAction
         // Create QA branch from the target branch (existing feature branch or main)
         $this->gitHubService->createBranch($branchName, $baseBranch);
 
-        $this->gitHubService->createOrUpdateFile(
-            branch: $branchName,
-            path: $filePath,
-            content: $playwrightCode,
-            message: "test(e2e): add generated tests for {$qaProcess->jira_issue_key}",
-        );
+        // Parse and commit multiple files from AI output
+        $files = $this->parseMultipleFiles($playwrightCode, $basePath);
+
+        foreach ($files as $file) {
+            $this->gitHubService->createOrUpdateFile(
+                branch: $branchName,
+                path: $file['path'],
+                content: $file['content'],
+                message: "test(e2e): add {$file['name']} for {$qaProcess->jira_issue_key}",
+            );
+
+            Log::info('CreateGitHubPrAction: Committed file', [
+                'qa_process_id' => $qaProcess->id,
+                'file' => $file['path'],
+            ]);
+        }
 
         $prBody = $this->generatePrBody($qaProcess, $baseBranch);
 
@@ -137,6 +147,60 @@ class CreateGitHubPrAction
         $timestamp = now()->format('Ymd-His');
 
         return "qa/{$issueKey}-{$timestamp}";
+    }
+
+    /**
+     * Parse multi-file output from AI (separated by // === FILE: path === markers)
+     *
+     * @return array<array{name: string, path: string, content: string}>
+     */
+    private function parseMultipleFiles(string $code, string $basePath): array
+    {
+        $testPath = dirname($basePath);
+        $files = [];
+
+        // Match pattern: // === FILE: filename.ext ===
+        $pattern = '/\/\/\s*===\s*FILE:\s*([^\s=]+)\s*===/';
+
+        if (preg_match_all($pattern, $code, $matches, PREG_OFFSET_CAPTURE)) {
+            $fileNames = $matches[1];
+
+            for ($i = 0; $i < count($fileNames); $i++) {
+                $fileName = $fileNames[$i][0];
+                $startOffset = $fileNames[$i][1] + strlen($matches[0][$i][0]);
+
+                // Find end of this file's content (next FILE marker or end of string)
+                $endOffset = isset($fileNames[$i + 1])
+                    ? $matches[0][$i + 1][1]
+                    : strlen($code);
+
+                $content = trim(substr($code, $startOffset, $endOffset - $startOffset));
+
+                // Determine full path
+                $fullPath = str_starts_with($fileName, 'pages/')
+                    ? "{$testPath}/{$fileName}"
+                    : (str_ends_with($fileName, '.md')
+                        ? "{$testPath}/{$fileName}"
+                        : "{$testPath}/{$fileName}");
+
+                $files[] = [
+                    'name' => $fileName,
+                    'path' => $fullPath,
+                    'content' => $content,
+                ];
+            }
+        }
+
+        // Fallback: if no FILE markers found, treat entire code as single spec file
+        if (empty($files)) {
+            $files[] = [
+                'name' => basename($basePath),
+                'path' => $basePath,
+                'content' => $code,
+            ];
+        }
+
+        return $files;
     }
 
     private function generatePrBody(QAProcess $qaProcess, string $targetBranch): string
