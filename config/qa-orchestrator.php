@@ -23,7 +23,7 @@ return [
     'claude' => [
         'api_key' => env('QA_CLAUDE_API_KEY'),
         'model' => env('QA_CLAUDE_MODEL', 'anthropic/claude-sonnet-4-20250514'),
-        'max_tokens' => env('QA_CLAUDE_MAX_TOKENS', 8192),
+        'max_tokens' => env('QA_CLAUDE_MAX_TOKENS', 16384),
         'timeout' => env('QA_CLAUDE_TIMEOUT', 120),
         'max_retries' => env('QA_CLAUDE_MAX_RETRIES', 3),
     ],

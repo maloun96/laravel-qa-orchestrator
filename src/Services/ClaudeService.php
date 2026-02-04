@@ -27,9 +27,9 @@ class ClaudeService
     {
         $this->apiKey = config('qa-orchestrator.claude.api_key');
         $this->model = config('qa-orchestrator.claude.model', 'anthropic/claude-sonnet-4-20250514');
-        $this->maxTokens = config('qa-orchestrator.claude.max_tokens', 8192);
-        $this->timeout = config('qa-orchestrator.claude.timeout', 120);
-        $this->maxRetries = config('qa-orchestrator.claude.max_retries', 3);
+        $this->maxTokens = (int) config('qa-orchestrator.claude.max_tokens', 16384);
+        $this->timeout = (int) config('qa-orchestrator.claude.timeout', 120);
+        $this->maxRetries = (int) config('qa-orchestrator.claude.max_retries', 3);
     }
 
     /**
