@@ -1,0 +1,46 @@
+{
+    "name": "maloun96/laravel-qa-orchestrator",
+    "description": "AI-powered QA automation: Jira webhook → AI test generation → Playwright PR → CI → Analysis → Jira update",
+    "keywords": ["laravel", "qa", "automation", "jira", "playwright", "ai", "claude", "testing"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Victor Malai",
+            "email": "maloun9696@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^11.0|^12.0",
+        "illuminate/support": "^11.0|^12.0",
+        "illuminate/http": "^11.0|^12.0",
+        "illuminate/queue": "^11.0|^12.0",
+        "spatie/laravel-data": "^4.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0",
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Maloun\\QAOrchestrator\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Maloun\\QAOrchestrator\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Maloun\\QAOrchestrator\\QAOrchestratorServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
