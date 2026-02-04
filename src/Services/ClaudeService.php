@@ -26,7 +26,7 @@ class ClaudeService
     public function __construct()
     {
         $this->apiKey = config('qa-orchestrator.claude.api_key');
-        $this->model = config('qa-orchestrator.claude.model', 'claude-sonnet-4-20250514');
+        $this->model = config('qa-orchestrator.claude.model', 'anthropic/claude-sonnet-4-20250514');
         $this->maxTokens = config('qa-orchestrator.claude.max_tokens', 8192);
         $this->timeout = config('qa-orchestrator.claude.timeout', 120);
         $this->maxRetries = config('qa-orchestrator.claude.max_retries', 3);
@@ -90,10 +90,13 @@ class ClaudeService
 
         while ($attempt < $this->maxRetries) {
             try {
-                $response = Http::withToken($this->apiKey)
-                    ->withHeader('anthropic-version', '2023-06-01')
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer '.$this->apiKey,
+                    'HTTP-Referer' => config('app.url'),
+                    'X-Title' => config('app.name'),
+                ])
                     ->timeout($this->timeout)
-                    ->post('https://api.anthropic.com/v1/messages', [
+                    ->post('https://openrouter.ai/api/v1/chat/completions', [
                         'model' => $this->model,
                         'max_tokens' => $maxTokens,
                         'messages' => [
@@ -102,21 +105,22 @@ class ClaudeService
                     ])
                     ->throw();
 
-                return $response->json('content.0.text');
+                return $response->json('choices.0.message.content');
             } catch (RequestException $e) {
                 $lastException = $e;
                 $attempt++;
 
-                Log::warning('Claude API error', [
+                Log::warning('OpenRouter API error', [
                     'attempt' => $attempt,
                     'error' => $e->getMessage(),
+                    'response' => $e->response?->body(),
                 ]);
 
                 if ($attempt < $this->maxRetries) {
                     sleep(2 ** $attempt);
                 }
             } catch (Exception $e) {
-                throw new ClaudeApiException('Claude API error: '.$e->getMessage(), 0, $e);
+                throw new ClaudeApiException('OpenRouter API error: '.$e->getMessage(), 0, $e);
             }
         }
 
